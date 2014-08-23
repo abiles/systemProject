@@ -140,6 +140,10 @@ int CmdProcessing(int tokenNum)
 		}
 			_tprintf(_T("echo message: %s \n"), optString);
 	}
+	else if (!_tcscmp(cmdTokenList[0], _T("lp")))
+	{
+
+	}
 	else
 	{
 		_tcscpy_s(cmdStringWithOptions, cmdTokenList[0]);
@@ -214,9 +218,9 @@ int CmdProcessing(int tokenNum)
 	
 }
 
-TCHAR* StrLower(TCHAR *pStr)
+TCHAR* StrLower(TCHAR* pStr)
 {
-	TCHAR *ret = pStr;
+	TCHAR* ret = pStr;
 
 	while (*pStr)
 	{
