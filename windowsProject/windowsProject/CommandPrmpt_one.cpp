@@ -3,6 +3,7 @@
 #include <tchar.h>
 #include <locale.h>
 #include <windows.h>
+#include <TlHelp32.h>
 
 #define DIR_LEN MAX_PATH+1
 #define STR_LEN 256
@@ -76,6 +77,81 @@ int CmdReadTokenize(void)
 	return tokenNum;
 }
 
+void ListProcessInfo()
+{
+	HANDLE hProcessSnap;
+	PROCESSENTRY32 pe32;
+	pe32.dwSize = sizeof(PROCESSENTRY32);
+
+	hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if (hProcessSnap == INVALID_HANDLE_VALUE)
+	{
+		_tprintf_s(_T("CreateToolhelp32Snapshot Error! \n"));
+		return;
+	}
+
+	if (!Process32First(hProcessSnap, &pe32))
+	{
+		_tprintf_s(_T("Process32First Error! \n"));
+		CloseHandle(hProcessSnap);
+		return;
+	}
+
+	do
+	{
+		_tprintf_s(_T("%25s %5d \n"), pe32.szExeFile, pe32.th32ProcessID);
+	} while (Process32Next(hProcessSnap, &pe32));
+
+	CloseHandle(hProcessSnap);
+}
+
+void KillProcess()
+{
+	HANDLE hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	PROCESSENTRY32 pe32;
+	pe32.dwSize = sizeof(PROCESSENTRY32);
+
+
+	if (hProcessSnap == INVALID_HANDLE_VALUE)
+	{
+		_tprintf_s(_T("CreateToolhelp32Snapshot Error! \n"));
+		return;
+	}
+
+	if (!Process32First(hProcessSnap, &pe32))
+	{
+		_tprintf_s(_T("Process32First Error! \n"));
+		CloseHandle(hProcessSnap);
+		return;
+	}
+		
+	HANDLE hProcess;
+	BOOL isKill = FALSE;
+
+	do
+	{
+		if (_tcscmp(pe32.szExeFile, cmdTokenList[1]) == 0)
+		{
+			hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pe32.th32ProcessID);
+			
+			if (hProcess != NULL)
+			{
+				TerminateProcess(hProcess, -1);
+				isKill = TRUE;
+			}
+			CloseHandle(hProcess);
+			break;
+		}
+	} while (Process32Next(hProcessSnap, &pe32));
+
+	CloseHandle(hProcessSnap);
+	if (isKill == FALSE)
+	{
+		_tprintf_s(_T("Kill process fail, Try again!\n"));
+	}
+	return;
+}
+
 
 int CmdProcessing(int tokenNum)
 {
@@ -84,6 +160,8 @@ int CmdProcessing(int tokenNum)
 	STARTUPINFO si = { 0, };
 	PROCESS_INFORMATION pi;
 	TCHAR cDir[DIR_LEN];
+	
+	
 
 	TCHAR cmdStringWithOptions[STR_LEN] = { 0, };
 	TCHAR optString[STR_LEN] = { 0, };
@@ -138,11 +216,20 @@ int CmdProcessing(int tokenNum)
 			_stprintf_s(optString,_countof(optString), _T("%s %s"), optString, cmdTokenList[i]);
 
 		}
-			_tprintf(_T("echo message: %s \n"), optString);
+		_tprintf(_T("echo message: %s \n"), optString);
 	}
 	else if (!_tcscmp(cmdTokenList[0], _T("lp")))
 	{
-
+		ListProcessInfo();
+	}
+	else if (!_tcscmp(cmdTokenList[0], _T("kp")))
+	{
+		if (tokenNum < 2)
+		{
+			_tprintf_s(_T("usage: kp <prcess name> \n"));
+			return 0;
+		}
+		KillProcess();
 	}
 	else
 	{
@@ -167,52 +254,6 @@ int CmdProcessing(int tokenNum)
 	}
 
 	
-
-	//_fputts(_T("Best command prompt >> "), stdout);
-	//_getts_s(cmdString);
-
-	//TCHAR* buffer;
-
-	////문자열을 단어단위로 잘라서 꺼내는 함수, sep은 구분 띄어스기거나 , 이거나 \t 이거나 \n
-	//TCHAR* token = _tcstok_s(cmdString, seps, &buffer);
-
-	
-
-	//tokenNum = 0;
-
-	////토큰 있으면 토큰을 소문자로 변환해서 토큰리스트에 하나씩 넣어야겠다. 
-	//while (token != NULL)
-	//{
-	//	_tcscpy_s(cmdTokenList[tokenNum++], StrLower(token));
-	//	token = _tcstok_s(NULL, seps, &buffer);// 함수가 첫번째 불렸을 때 나왔던 문자열을 가지고 있다. 
-	//										   // 그래서 이후로는 그냥 잘라서 준다. (첫번째 불렸을 때랑 두번째 불렸을 때가 다른거지)
-	//}
-
-	//if (!_tcscmp(cmdTokenList[0], _T("exit")))
-	//{
-	//	return TRUE;
-	//}
-	//else if (!_tcscmp(cmdTokenList[0], _T("")))
-	//{
-	//	_tprintf_s(_T("\n"));
-	//}
-
-	//else if (!_tcscmp(cmdTokenList[0], _T("추가 되는 명령어 2")))
-	//{
-	//}
-	//else
-	//{
-	//	STARTUPINFO si = { 0, };
-	//	PROCESS_INFORMATION pi;
-	//	si.cb = sizeof(si);
-	//	BOOL state = CreateProcess(NULL, cmdTokenList[0], NULL, NULL,
-	//		TRUE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi);
-
-	//	if (!state)
-	//	{
-	//		_tprintf(ERROR_CMD, cmdTokenList[0]);
-	//	}
-	//}
 
 	return 0;
 	
