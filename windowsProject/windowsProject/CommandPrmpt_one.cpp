@@ -19,7 +19,7 @@ int CmdReadTokenize(void);
 int CmdProcessing(int);
 TCHAR* StrLower(TCHAR*);
 
-int _tmain(int argc, TCHAR* argv[])
+int _tmain(int argc, TCHAR* argv[]) 
 {
 	_tsetlocale(LC_ALL, _T("Korean"));
 
@@ -151,7 +151,10 @@ void KillProcess()
 	}
 	return;
 }
+void PrintAllFileInCurrentDir()
+{
 
+}
 
 int CmdProcessing(int tokenNum)
 {
@@ -160,8 +163,6 @@ int CmdProcessing(int tokenNum)
 	STARTUPINFO si = { 0, };
 	PROCESS_INFORMATION pi;
 	TCHAR cDir[DIR_LEN];
-	
-	
 
 	TCHAR cmdStringWithOptions[STR_LEN] = { 0, };
 	TCHAR optString[STR_LEN] = { 0, };
@@ -226,10 +227,40 @@ int CmdProcessing(int tokenNum)
 	{
 		if (tokenNum < 2)
 		{
-			_tprintf_s(_T("usage: kp <prcess name> \n"));
+			_tprintf_s(_T("usage: kp <process name> \n"));
 			return 0;
 		}
 		KillProcess();
+	}
+	else if (!_tcscmp(cmdTokenList[0], _T("dir")))
+	{
+		PrintAllFileInCurrentDir();
+	}
+	else if (!_tcscmp(cmdTokenList[0], _T("mkdir")))
+	{
+		if (tokenNum < 2)
+		{
+			_tprintf_s(_T("usage: mkdir <dir name> \n"));
+			return 0;
+		}
+		CreateDirectory(cmdTokenList[1], NULL);
+	}
+	else if (!_tcscmp(cmdTokenList[0], _T("rmdir")))
+	{
+		if (tokenNum < 2)
+		{
+			_tprintf_s(_T("usage: rmdir <dir name> \n"));
+			return 0;
+		}
+		RemoveDirectory(cmdTokenList[1]);
+	}
+	else if (!_tcscmp(cmdTokenList[0], _T("del")))
+	{
+
+	}
+	else if (!_tcscmp(cmdTokenList[0], _T("ren")))
+	{
+
 	}
 	else
 	{
