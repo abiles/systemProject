@@ -151,9 +151,57 @@ void KillProcess()
 	}
 	return;
 }
-void PrintAllFileInCurrentDir()
+int PrintAllFileInCurrentDir()
 {
+	WIN32_FIND_DATA fileData;
+	TCHAR curDirName[DIR_LEN];
+	//TCHAR fileInCurDir[MAX_PATH];
+	GetCurrentDirectory(DIR_LEN, curDirName);
+	_tcsncat_s(curDirName, _T("\\*"), 3);
+	HANDLE hFind = FindFirstFile(curDirName, &fileData);
 
+	if (hFind == INVALID_HANDLE_VALUE)
+	{
+		_tprintf_s(_T("Invalid file handle\n"));
+		return -1;
+	}
+	else
+	{
+		_tprintf_s(_T("File in Current Directory List\n"));
+		_tprintf_s(_T("%s\n"), fileData.cFileName);
+		while (FindNextFile(hFind, &fileData))
+		{
+			_tprintf_s(_T("%s\n"), fileData.cFileName);
+		}
+		FindClose(hFind);
+
+	}
+
+	return 0;
+
+
+}
+
+bool IsSameFileInCurDir()
+{
+	WIN32_FIND_DATA fileData;
+	TCHAR curDirName[DIR_LEN];
+	TCHAR fileInCurDir[MAX_PATH];
+	GetCurrentDirectory(DIR_LEN, curDirName);
+	HANDLE hFind = FindFirstFile(fileInCurDir, &fileData);
+	
+	do 
+	{
+		if (cmdTokenList[1] == fileData.cFileName)
+		{
+			_tprintf_s(_T("Same Name Exist\n"));
+			return 1;
+		}
+
+	} while (FindNextFile(hFind, &fileData));
+	FindClose(hFind);
+
+	return 0;
 }
 
 int CmdProcessing(int tokenNum)
@@ -197,11 +245,11 @@ int CmdProcessing(int tokenNum)
 				_T("%s"), _T("windowsProject.exe"));
 		}
 
-			isRun = CreateProcess(NULL, cmdStringWithOptions, NULL, NULL, TRUE,
-				CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi);
+		isRun = CreateProcess(NULL, cmdStringWithOptions, NULL, NULL, TRUE,
+							  CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi);
 
-			CloseHandle(pi.hProcess);
-			CloseHandle(pi.hThread);
+		CloseHandle(pi.hProcess);
+		CloseHandle(pi.hThread);
 		
 	}
 	else if (!_tcscmp(cmdTokenList[0], _T("pwd")))
@@ -243,7 +291,14 @@ int CmdProcessing(int tokenNum)
 			_tprintf_s(_T("usage: mkdir <dir name> \n"));
 			return 0;
 		}
+
+		/*if (IsSameFileInCurDir())
+		{
+		return 0;
+		}*/
+
 		CreateDirectory(cmdTokenList[1], NULL);
+	
 	}
 	else if (!_tcscmp(cmdTokenList[0], _T("rmdir")))
 	{
@@ -252,15 +307,48 @@ int CmdProcessing(int tokenNum)
 			_tprintf_s(_T("usage: rmdir <dir name> \n"));
 			return 0;
 		}
-		RemoveDirectory(cmdTokenList[1]);
+		/*	if (!IsSameFileInCurDir())
+			{
+			("Dir doesn't exist\n");
+			return 0;
+			}*/
+		//Path
+		GetCurrentDirectory(DIR_LEN, cDir);
+		_stprintf_s(cDir, _T("\%s"), cmdTokenList[1]);
+		RemoveDirectory(cDir);
 	}
 	else if (!_tcscmp(cmdTokenList[0], _T("del")))
 	{
-
+		if (tokenNum < 2)
+		{
+			_tprintf_s(_T("usage: del <file name> \n"));
+			return 0;
+		}
+		/*if (!IsSameFileInCurDir())
+		{
+		("File doesn't exist\n");
+		return 0;
+		}*/
+		
+		_tremove(cmdTokenList[1]);
+		
 	}
 	else if (!_tcscmp(cmdTokenList[0], _T("ren")))
 	{
-
+		
+		if (tokenNum < 3)
+		{
+			_tprintf_s(_T("usage: ren <cur name> <new name> \n"));
+			return 0;
+		}
+		/*if (!IsSameFileInCurDir())
+		{
+			("File doesn't exist\n");
+			return 0;
+		}*/
+		
+		_trename(cmdTokenList[1], cmdTokenList[2]);
+	
 	}
 	else
 	{
