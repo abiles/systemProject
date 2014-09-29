@@ -4,15 +4,22 @@
 #include <locale.h>
 #include <windows.h>
 #include <TlHelp32.h>
+#include <list>
 
 #define DIR_LEN MAX_PATH+1
 #define STR_LEN 256
 #define CMD_TOKEN_NUM 10
+#define CMD_HISTORY 100
 
 TCHAR ERROR_CMD[] = _T("'%s'는 실행할 수 있는 프로그램이 아닙니다. \n");
 
 TCHAR cmdString[STR_LEN];
 TCHAR cmdTokenList[CMD_TOKEN_NUM][STR_LEN];
+TCHAR cmdHistoryToken[CMD_HISTORY][STR_LEN];
+int historyNum = 0;
+std::list<TCHAR*> cmdHistoryList;
+
+
 TCHAR seps[] = _T(" ,\t\n");
 
 int CmdReadTokenize(void);
@@ -22,6 +29,7 @@ TCHAR* StrLower(TCHAR*);
 int _tmain(int argc, TCHAR* argv[]) 
 {
 	_tsetlocale(LC_ALL, _T("Korean"));
+
 
 	if (argc > 2)
 	{
@@ -66,8 +74,12 @@ int CmdReadTokenize(void)
 
 	token = _tcstok_s(cmdString, seps, &nextToken);
 
-	int tokenNum = 0;
 
+	_tcscpy_s(cmdHistoryToken[historyNum], StrLower(token));
+	cmdHistoryList.push_back(cmdHistoryToken[historyNum]);
+	++historyNum;
+
+	int tokenNum = 0;
 	while (token != NULL)
 	{
 		_tcscpy_s(cmdTokenList[tokenNum++], StrLower(token));
@@ -204,6 +216,118 @@ bool IsSameFileInCurDir()
 	return 0;
 }
 
+void Sort()
+{
+	BOOL isRun;
+	STARTUPINFO si = { 0, };
+	PROCESS_INFORMATION pi;
+
+	if (_tcscmp(cmdTokenList[1], _T(">")))
+	{
+		SECURITY_ATTRIBUTES fileSec = { sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
+		HANDLE hFile = CreateFile(cmdTokenList[2], GENERIC_WRITE, FILE_SHARE_READ,
+			&fileSec, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+		si.hStdOutput = hFile;
+		si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+		si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+		si.dwFlags |= STARTF_USESTDHANDLES;
+
+		isRun = CreateProcess(NULL,cmdTokenList[0] , NULL, NULL,
+			TRUE, 0, NULL, NULL, &si, &pi);
+		WaitForSingleObject(pi.hProcess, INFINITE);	
+		CloseHandle(hFile);
+		
+	}
+	else
+	{
+		isRun = CreateProcess(NULL, cmdTokenList[0], NULL, NULL,
+			TRUE, 0, NULL, NULL, &si, &pi);
+		WaitForSingleObject(pi.hProcess, INFINITE);
+	}
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
+}
+
+
+void TypeTextFile()
+{
+	TCHAR cmdStringWithOutOptions[STR_LEN] = { 0, };
+	BOOL  isRun;
+
+	if (!_tcscmp(cmdTokenList[2], _T("|")))
+	{
+		
+		HANDLE hReadPipe, hWritePipe;
+
+		SECURITY_ATTRIBUTES pipeSA = { sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
+
+		CreatePipe(&hReadPipe, &hWritePipe, &pipeSA, 0);
+
+		STARTUPINFO siType = { 0, };
+		PROCESS_INFORMATION piType;
+		siType.cb = sizeof(siType);
+
+		siType.hStdOutput = hWritePipe;
+		siType.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+		siType.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+		siType.dwFlags |= STARTF_USESTDHANDLES;
+
+		_tcscpy_s(cmdStringWithOutOptions, cmdTokenList[0]);
+		_stprintf_s(cmdStringWithOutOptions, _T("%s %s"), cmdStringWithOutOptions, cmdTokenList[1]);
+
+		isRun = CreateProcess(NULL, cmdStringWithOutOptions, NULL, NULL, TRUE, 0, NULL,
+							NULL, &siType, &piType);
+
+		CloseHandle(piType.hThread);
+		CloseHandle(hWritePipe);
+
+
+
+		STARTUPINFO siSort = { 0, };
+		PROCESS_INFORMATION piSort;
+		siSort.cb = sizeof(siSort);
+
+		siSort.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+		siSort.hStdInput = hReadPipe;
+		siSort.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+		siSort.dwFlags |= STARTF_USESTDHANDLES;
+
+		isRun = CreateProcess(NULL, cmdTokenList[3], NULL, NULL, TRUE, 0,
+							  NULL, NULL, &siSort, &piSort);
+
+		CloseHandle(piSort.hThread);
+		CloseHandle(hReadPipe);
+
+		WaitForSingleObject(piType.hProcess, INFINITE);
+		WaitForSingleObject(piSort.hProcess, INFINITE);
+
+		CloseHandle(piType.hProcess);
+		CloseHandle(piSort.hProcess);
+	}
+	else
+	{
+		_tcscpy_s(cmdStringWithOutOptions, cmdTokenList[0]);
+		_stprintf_s(cmdStringWithOutOptions, _T("%s %s"), cmdStringWithOutOptions, cmdTokenList[1]);
+		STARTUPINFO si = { 0, };
+		PROCESS_INFORMATION pi;
+		si.cb = sizeof(si);
+
+		isRun = CreateProcess(NULL, cmdStringWithOutOptions, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
+		WaitForSingleObject(pi.hProcess, INFINITE);
+
+		CloseHandle(pi.hProcess);
+		CloseHandle(pi.hThread);
+	}
+}
+
+void CmdHistory()
+{
+	for (auto cmdHistory : cmdHistoryList)
+	{
+		_tprintf_s(_T("%s\n"), cmdHistory);
+	}
+}
+
 int CmdProcessing(int tokenNum)
 {
 
@@ -314,7 +438,7 @@ int CmdProcessing(int tokenNum)
 			}*/
 		//Path
 		GetCurrentDirectory(DIR_LEN, cDir);
-		_stprintf_s(cDir, _T("\%s"), cmdTokenList[1]);
+		_stprintf_s(cDir, _T("%s"), cmdTokenList[1]);
 		RemoveDirectory(cDir);
 	}
 	else if (!_tcscmp(cmdTokenList[0], _T("del")))
@@ -349,6 +473,18 @@ int CmdProcessing(int tokenNum)
 		
 		_trename(cmdTokenList[1], cmdTokenList[2]);
 	
+	}
+	else if (!_tcscmp(cmdTokenList[0], _T("sort")))
+	{
+		Sort();
+	}
+	else if (!_tcscmp(cmdTokenList[0], _T("type")))
+	{
+		TypeTextFile();
+	}
+	else if (!_tcscmp(cmdTokenList[0], _T("history")))
+	{
+		CmdHistory();
 	}
 	else
 	{
